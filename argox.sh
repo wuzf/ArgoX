@@ -1,11 +1,25 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.9 (2025.05.11)'
+VERSION='1.7.0 (2025.01.07) - Multi-region Socks5 Support'
 
 # 各变量默认值
 GH_PROXY='https://ghfast.top/'
-WS_PATH_DEFAULT='argox'
+# 多个路径和对应的地区
+declare -A WS_PATHS=(
+  ["hk"]="🇭🇰香港"
+  ["sg"]="🇸🇬新加坡"
+  ["jp"]="🇯🇵日本"
+  ["tw"]="🇹🇼台湾"
+  ["vn"]="🇻🇳越南"
+)
+declare -A SOCKS5_PORTS=(
+  ["hk"]="20000"
+  ["sg"]="10001"
+  ["jp"]="50000"
+  ["tw"]="30000"
+  ["vn"]="40000"
+)
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 TLS_SERVER='addons.mozilla.org'
@@ -20,36 +34,35 @@ trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
 mkdir -p $TEMP_DIR
 
-E[0]="Language:\n 1. English (default) \n 2. 简体中文"
+E[0]="Language:\n 1. English \n 2. 简体中文 (default)"
 C[0]="${E[0]}"
-E[1]="Added the ability to change CDNs online using [argox -d]."
-C[1]="新增使用 [argox -d] 在线更换 CDN 功能"
-E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
-C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
+E[1]="Added multi-region SOCKS5 proxy support with automatic path-based routing."
+C[1]="新增多地区 SOCKS5 代理支持，自动基于路径进行路由分流"
+E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/wuzf/ArgoXForAlice]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
+C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/wuzf/ArgoXForAlice]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
 C[3]="输入错误达5次,脚本退出"
 E[4]="UUID should be 36 characters, please re-enter \(\${a} times remaining\)"
 C[4]="UUID 应为36位字符,请重新输入 \(剩余\${a}次\)"
-E[5]="The script supports Debian, Ubuntu, CentOS, Alpine or Arch systems only. Feedback: [https://github.com/fscarmen/argox/issues]"
-C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Alpine 或 Arch 系统,问题反馈:[https://github.com/fscarmen/argox/issues]"
-E[6]="Curren operating system is \$SYS.\\\n The system lower than \$SYSTEM \${MAJOR[int]} is not supported. Feedback: [https://github.com/fscarmen/argox/issues]"
-C[6]="当前操作是 \$SYS\\\n 不支持 \$SYSTEM \${MAJOR[int]} 以下系统,问题反馈:[https://github.com/fscarmen/argox/issues]"
+E[5]="The script supports Debian, Ubuntu, CentOS, Alpine or Arch systems only. Feedback: [https://github.com/wuzf/ArgoXForAlice/issues]"
+C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Alpine 或 Arch 系统,问题反馈:[https://github.com/wuzf/ArgoXForAlice/issues]"
+E[6]="Curren operating system is \$SYS.\\\n The system lower than \$SYSTEM \${MAJOR[int]} is not supported. Feedback: [https://github.com/wuzf/ArgoXForAlice/issues]"
+C[6]="当前操作是 \$SYS\\\n 不支持 \$SYSTEM \${MAJOR[int]} 以下系统,问题反馈:[https://github.com/wuzf/ArgoXForAlice/issues]"
 E[7]="Install dependence-list:"
 C[7]="安装依赖列表:"
 E[8]="All dependencies already exist and do not need to be installed additionally."
 C[8]="所有依赖已存在，不需要额外安装"
 E[9]="To upgrade, press [y]. No upgrade by default:"
 C[9]="升级请按 [y]，默认不升级:"
-E[10]="(3/8) Please enter Argo Domain (Default is temporary domain if left blank):"
-C[10]="(3/8) 请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
+E[10]="(3/6) Please enter Argo Domain (Default is temporary domain if left blank):"
+C[10]="(3/6) 请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
 E[11]="Please enter Argo Token or Json ( User can easily obtain the json at https://fscarmen.cloudflare.now.cc ):"
 C[11]="请输入 Argo Token 或者 Json ( 用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc ):"
-E[12]="\(6/8\) Please enter Xray UUID \(Default is \$UUID_DEFAULT\):"
-C[12]="\(6/8\) 请输入 Xray UUID \(默认为 \$UUID_DEFAULT\):"
-E[13]="\(7/8\) Please enter Xray WS Path \(Default is \$WS_PATH_DEFAULT\):"
-C[13]="\(7/8\) 请输入 Xray WS 路径 \(默认为 \$WS_PATH_DEFAULT\):"
-E[14]="Xray WS Path only allow uppercase and lowercase letters and numeric characters, please re-enter \(\${a} times remaining\):"
-C[14]="Xray WS 路径只允许英文大小写及数字字符，请重新输入 \(剩余\${a}次\):"
+E[12]="\(6/6\) Please enter Xray UUID \(Default is \$UUID_DEFAULT\):"
+C[12]="\(6/6\) 请输入 Xray UUID \(默认为 \$UUID_DEFAULT\):"
+
+E[14]="Multiple WS paths configured automatically for load balancing across regions:"
+C[14]="已自动配置多个 WS 路径用于不同地区的负载均衡:"
 E[15]="ArgoX script has not been installed yet."
 C[15]="ArgoX 脚本还没有安装"
 E[16]="ArgoX is completely uninstalled."
@@ -70,8 +83,8 @@ E[23]="Virtualization"
 C[23]="虚拟化"
 E[24]="Choose:"
 C[24]="请选择:"
-E[25]="Curren architecture \$(uname -m) is not supported. Feedback: [https://github.com/fscarmen/argox/issues]"
-C[25]="当前架构 \$(uname -m) 暂不支持,问题反馈:[https://github.com/fscarmen/argox/issues]"
+E[25]="Curren architecture \$(uname -m) is not supported. Feedback: [https://github.com/wuzf/ArgoXForAlice/issues]"
+C[25]="当前架构 \$(uname -m) 暂不支持,问题反馈:[https://github.com/wuzf/ArgoXForAlice/issues]"
 E[26]="Not install"
 C[26]="未安装"
 E[27]="close"
@@ -104,22 +117,21 @@ E[40]="Argo tunnel is: \$ARGO_TYPE\\\n The domain is: \$ARGO_DOMAIN"
 C[40]="Argo 隧道类型为: \$ARGO_TYPE\\\n 域名是: \$ARGO_DOMAIN"
 E[41]="Argo tunnel type:\n 1. Try\n 2. Token or Json"
 C[41]="Argo 隧道类型:\n 1. Try\n 2. Token 或者 Json"
-E[42]="\(5/8\) Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
-C[42]="\(5/8\) 请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
+E[42]="\(5/6\) Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
+C[42]="\(5/6\) 请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
 E[43]="\$APP local verion: \$LOCAL.\\\t The newest verion: \$ONLINE"
 C[43]="\$APP 本地版本: \$LOCAL.\\\t 最新版本: \$ONLINE"
 E[44]="No upgrade required."
 C[44]="不需要升级"
-E[45]="Argo authentication message does not match the rules, neither Token nor Json, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
-C[45]="Argo 认证信息不符合规则，既不是 Token，也是不是 Json，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
+E[45]="Argo authentication message does not match the rules, neither Token nor Json, script exits. Feedback:[https://github.com/wuzf/ArgoXForAlice/issues]"
+C[45]="Argo 认证信息不符合规则，既不是 Token，也是不是 Json，脚本退出，问题反馈:[https://github.com/wuzf/ArgoXForAlice/issues]"
 E[46]="Connect"
 C[46]="连接"
-E[47]="The script must be run as root, you can enter sudo -i and then download and run again. Feedback:[https://github.com/fscarmen/argox/issues]"
-C[47]="必须以root方式运行脚本，可以输入 sudo -i 后重新下载运行，问题反馈:[https://github.com/fscarmen/argox/issues]"
-E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
-C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
-E[49]="\(8/8\) Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
-C[49]="\(8/8\) 请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
+E[47]="The script must be run as root, you can enter sudo -i and then download and run again. Feedback:[https://github.com/wuzf/ArgoXForAlice/issues]"
+C[47]="必须以root方式运行脚本，可以输入 sudo -i 后重新下载运行，问题反馈:[https://github.com/wuzf/ArgoXForAlice/issues]"
+E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[https://github.com/wuzf/ArgoXForAlice/issues]"
+C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/wuzf/ArgoXForAlice/issues]"
+
 E[50]="\${APP[@]} services are not enabled, node information cannot be output. Press [y] if you want to open."
 C[50]="\${APP[@]} 服务未开启，不能输出节点信息。如需打开请按 [y]: "
 E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing-box]"
@@ -132,14 +144,14 @@ E[54]="Warp / warp-go was detected to be running. Please enter the correct serve
 C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器 IP:"
 E[55]="The script runs today: \$TODAY. Total: \$TOTAL"
 C[55]="脚本当天运行次数: \$TODAY，累计运行次数: \$TOTAL"
-E[56]="\(4/8\) Please enter the Reality port \(Default is \${REALITY_PORT_DEFAULT}\):"
-C[56]="\(4/8\) 请输入 Reality 的端口号 \(默认为 \${REALITY_PORT_DEFAULT}\):"
+E[56]="\(4/6\) Please enter the Reality port \(Default is \${REALITY_PORT_DEFAULT}\):"
+C[56]="\(4/6\) 请输入 Reality 的端口号 \(默认为 \${REALITY_PORT_DEFAULT}\):"
 E[57]="Install sba scripts (argo + sing-box) [https://github.com/fscarmen/sba]"
 C[57]="安装 sba 脚本 (argo + sing-box) [https://github.com/fscarmen/sba]"
 E[58]="No server ip, script exits. Feedback:[https://github.com/fscarmen/sing-box/issues]"
 C[58]="没有 server ip，脚本退出，问题反馈:[https://github.com/fscarmen/sing-box/issues]"
-E[59]="\(2/8\) Please enter VPS IP \(Default is: \${SERVER_IP_DEFAULT}\):"
-C[59]="\(2/8\) 请输入 VPS IP \(默认为: \${SERVER_IP_DEFAULT}\):"
+E[59]="\(2/6\) Please enter VPS IP \(Default is: \${SERVER_IP_DEFAULT}\):"
+C[59]="\(2/6\) 请输入 VPS IP \(默认为: \${SERVER_IP_DEFAULT}\):"
 E[60]="Quicktunnel domain can be obtained from: http://\${SERVER_IP_1}:\${METRICS_PORT}/quicktunnel"
 C[60]="临时隧道域名可以从以下网站获取: http://\${SERVER_IP_1}:\${METRICS_PORT}/quicktunnel"
 E[61]="Ports are in used: \$REALITY_PORT"
@@ -156,8 +168,8 @@ E[66]="Adaptive Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM Client
 C[66]="自适应 Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM 客户端"
 E[67]="template"
 C[67]="模版"
-E[68]="(1/8) Output subscription QR code and https service, need to install nginx\n If not, please enter [n]. Default installation:"
-C[68]="(1/8) 输出订阅二维码和 https 服务，需要安装依赖 nginx\n 如不需要，请输入 [n]，默认安装:"
+E[68]="(1/6) Output subscription QR code and https service, need to install nginx\n If not, please enter [n]. Default installation:"
+C[68]="(1/6) 输出订阅二维码和 https 服务，需要安装依赖 nginx\n 如不需要，请输入 [n]，默认安装:"
 E[69]="Set SElinux: enforcing --> disabled"
 C[69]="设置 SElinux: enforcing --> disabled"
 E[70]="ArgoX is not installed and cannot change the CDN."
@@ -181,7 +193,7 @@ text() { grep -q '\$' <<< "${E[$*]}" && eval echo "\$(eval echo "\${${L}[$*]}")"
 
 # 检测是否需要启用 Github CDN，如能直接连通，则不使用
 check_cdn() {
-  [ -n "$GH_PROXY" ] && wget --server-response --quiet --output-document=/dev/null --no-check-certificate --tries=2 --timeout=3 https://raw.githubusercontent.com/fscarmen/ArgoX/main/README.md >/dev/null 2>&1 && unset GH_PROXY
+  [ -n "$GH_PROXY" ] && wget --server-response --quiet --output-document=/dev/null --no-check-certificate --tries=2 --timeout=3 https://raw.githubusercontent.com/wuzf/ArgoXForAlice/main/README.md >/dev/null 2>&1 && unset GH_PROXY
 }
 
 # 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out，此处判断改编自 https://github.com/lmc999/RegionRestrictionCheck
@@ -233,8 +245,8 @@ select_language() {
     case $(cat $WORK_DIR/language 2>&1) in
       E ) L=E ;;
       C ) L=C ;;
-      * ) [ -z "$L" ] && L=E && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
-      [ "$LANGUAGE" = 2 ] && L=C ;;
+      * ) [ -z "$L" ] && L=C && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
+      [ "$LANGUAGE" = 1 ] && L=E ;;
     esac
   fi
 }
@@ -244,7 +256,7 @@ check_root() {
   [ "$(id -u)" != 0 ] && error "\n $(text 47) \n"
 }
 
-# 判断处理器架构
+  # 判断处理器架构
 check_arch() {
   case $(uname -m) in
     aarch64|arm64 )
@@ -420,10 +432,10 @@ argo_variable() {
         reading "\n $(text 54) " SERVER_IP
       done
     fi
-  elif [ -n "$WAN4" ]; then
-    SERVER_IP_DEFAULT=$WAN4
   elif [ -n "$WAN6" ]; then
     SERVER_IP_DEFAULT=$WAN6
+  elif [ -n "$WAN4" ]; then
+    SERVER_IP_DEFAULT=$WAN4
   fi
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
@@ -513,25 +525,18 @@ xray_variable() {
     [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && warning "\n $(text 4) "
   done
 
-  ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$WS_PATH" ] && reading "\n $(text 13) " WS_PATH
-  local a=5
-  until [[ -z "$WS_PATH" || "${WS_PATH,,}" =~ ^[a-z0-9]+$ ]]; do
-    (( a-- )) || true
-    [ "$a" = 0 ] && error " $(text 3) " || reading " $(text 14) " WS_PATH
-  done
-  WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
+  # 不再询问路径，使用预定义的多个路径
+  # WS_PATH 将在生成配置时处理多个路径
 
-  # 输入节点名，以系统的 hostname 作为默认
+  # 直接使用默认节点名，不再询问用户输入
   if [ -z "$NODE_NAME" ]; then
     if [ -x "$(type -p hostname)" ]; then
-      NODE_NAME_DEFAULT="$(hostname)"
+      NODE_NAME="$(hostname)"
     elif [ -s /etc/hostname ]; then
-      NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+      NODE_NAME="$(cat /etc/hostname)"
     else
-      NODE_NAME_DEFAULT="ArgoX"
+      NODE_NAME="ArgoX"
     fi
-    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 49) " NODE_NAME
-    NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
   fi
 }
 
@@ -609,7 +614,6 @@ firewall_configuration() {
 json_nginx() {
   if [ -s $WORK_DIR/*inbound*.json ]; then
     JSON=$(cat $WORK_DIR/*inbound*.json)
-    WS_PATH=$(expr "$JSON" : '.*path":"/\(.*\)-vl.*')
     SERVER_IP=${SERVER_IP:-"$(awk -F '"' '/"SERVER_IP"/{print $4}' <<< "$JSON")"}
     UUID=$(awk -F '"' '/"password"/{print $4; exit}' <<< "$JSON")
   fi
@@ -926,20 +930,84 @@ EOF
                 "decryption":"none",
                 "fallbacks":[
                     {
-                        "path":"/${WS_PATH}-vl",
+                        "path":"/hk-vl",
                         "dest":3002
                     },
                     {
-                        "path":"/${WS_PATH}-vm",
+                        "path":"/sg-vl",
+                        "dest":3007
+                    },
+                    {
+                        "path":"/jp-vl",
+                        "dest":3012
+                    },
+                    {
+                        "path":"/tw-vl",
+                        "dest":3017
+                    },
+                    {
+                        "path":"/vn-vl",
+                        "dest":3022
+                    },
+                    {
+                        "path":"/hk-vm",
                         "dest":3003
                     },
                     {
-                        "path":"/${WS_PATH}-tr",
+                        "path":"/sg-vm",
+                        "dest":3008
+                    },
+                    {
+                        "path":"/jp-vm",
+                        "dest":3013
+                    },
+                    {
+                        "path":"/tw-vm",
+                        "dest":3018
+                    },
+                    {
+                        "path":"/vn-vm",
+                        "dest":3023
+                    },
+                    {
+                        "path":"/hk-tr",
                         "dest":3004
                     },
                     {
-                        "path":"/${WS_PATH}-sh",
+                        "path":"/sg-tr",
+                        "dest":3009
+                    },
+                    {
+                        "path":"/jp-tr",
+                        "dest":3014
+                    },
+                    {
+                        "path":"/tw-tr",
+                        "dest":3019
+                    },
+                    {
+                        "path":"/vn-tr",
+                        "dest":3024
+                    },
+                    {
+                        "path":"/hk-sh",
                         "dest":3005
+                    },
+                    {
+                        "path":"/sg-sh",
+                        "dest":3010
+                    },
+                    {
+                        "path":"/jp-sh",
+                        "dest":3015
+                    },
+                    {
+                        "path":"/tw-sh",
+                        "dest":3020
+                    },
+                    {
+                        "path":"/vn-sh",
+                        "dest":3025
                     },
                     {
                         "dest":3006,
@@ -956,6 +1024,7 @@ EOF
             "port":3002,
             "listen":"127.0.0.1",
             "protocol":"vless",
+            "tag":"hk-vl",
             "settings":{
                 "clients":[
                     {
@@ -969,7 +1038,7 @@ EOF
                 "network":"ws",
                 "security":"none",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-vl"
+                    "path":"/hk-vl"
                 }
             },
             "sniffing":{
@@ -986,6 +1055,7 @@ EOF
             "port":3003,
             "listen":"127.0.0.1",
             "protocol":"vmess",
+            "tag":"hk-vm",
             "settings":{
                 "clients":[
                     {
@@ -997,7 +1067,7 @@ EOF
             "streamSettings":{
                 "network":"ws",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-vm"
+                    "path":"/hk-vm"
                 }
             },
             "sniffing":{
@@ -1014,6 +1084,7 @@ EOF
             "port":3004,
             "listen":"127.0.0.1",
             "protocol":"trojan",
+            "tag":"hk-tr",
             "settings":{
                 "clients":[
                     {
@@ -1025,7 +1096,7 @@ EOF
                 "network":"ws",
                 "security":"none",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-tr"
+                    "path":"/hk-tr"
                 }
             },
             "sniffing":{
@@ -1042,6 +1113,7 @@ EOF
             "port":3005,
             "listen":"127.0.0.1",
             "protocol":"shadowsocks",
+            "tag":"hk-sh",
             "settings":{
                 "clients":[
                     {
@@ -1054,7 +1126,483 @@ EOF
             "streamSettings":{
                 "network":"ws",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-sh"
+                    "path":"/hk-sh"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3007,
+            "listen":"127.0.0.1",
+            "protocol":"vless",
+            "tag":"sg-vl",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "level":0
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/sg-vl"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3008,
+            "listen":"127.0.0.1",
+            "protocol":"vmess",
+            "tag":"sg-vm",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "alterId":0
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/sg-vm"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3009,
+            "listen":"127.0.0.1",
+            "protocol":"trojan",
+            "tag":"sg-tr",
+            "settings":{
+                "clients":[
+                    {
+                        "password":"${UUID}"
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/sg-tr"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3010,
+            "listen":"127.0.0.1",
+            "protocol":"shadowsocks",
+            "tag":"sg-sh",
+            "settings":{
+                "clients":[
+                    {
+                        "method":"chacha20-ietf-poly1305",
+                        "password":"${UUID}"
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/sg-sh"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3012,
+            "listen":"127.0.0.1",
+            "protocol":"vless",
+            "tag":"jp-vl",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "level":0
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/jp-vl"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3013,
+            "listen":"127.0.0.1",
+            "protocol":"vmess",
+            "tag":"jp-vm",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "alterId":0
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/jp-vm"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3014,
+            "listen":"127.0.0.1",
+            "protocol":"trojan",
+            "tag":"jp-tr",
+            "settings":{
+                "clients":[
+                    {
+                        "password":"${UUID}"
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/jp-tr"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3015,
+            "listen":"127.0.0.1",
+            "protocol":"shadowsocks",
+            "tag":"jp-sh",
+            "settings":{
+                "clients":[
+                    {
+                        "method":"chacha20-ietf-poly1305",
+                        "password":"${UUID}"
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/jp-sh"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3017,
+            "listen":"127.0.0.1",
+            "protocol":"vless",
+            "tag":"tw-vl",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "level":0
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/tw-vl"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3018,
+            "listen":"127.0.0.1",
+            "protocol":"vmess",
+            "tag":"tw-vm",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "alterId":0
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/tw-vm"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3019,
+            "listen":"127.0.0.1",
+            "protocol":"trojan",
+            "tag":"tw-tr",
+            "settings":{
+                "clients":[
+                    {
+                        "password":"${UUID}"
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/tw-tr"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3020,
+            "listen":"127.0.0.1",
+            "protocol":"shadowsocks",
+            "tag":"tw-sh",
+            "settings":{
+                "clients":[
+                    {
+                        "method":"chacha20-ietf-poly1305",
+                        "password":"${UUID}"
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/tw-sh"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3022,
+            "listen":"127.0.0.1",
+            "protocol":"vless",
+            "tag":"vn-vl",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "level":0
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/vn-vl"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3023,
+            "listen":"127.0.0.1",
+            "protocol":"vmess",
+            "tag":"vn-vm",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "alterId":0
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/vn-vm"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3024,
+            "listen":"127.0.0.1",
+            "protocol":"trojan",
+            "tag":"vn-tr",
+            "settings":{
+                "clients":[
+                    {
+                        "password":"${UUID}"
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/vn-tr"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3025,
+            "listen":"127.0.0.1",
+            "protocol":"shadowsocks",
+            "tag":"vn-sh",
+            "settings":{
+                "clients":[
+                    {
+                        "method":"chacha20-ietf-poly1305",
+                        "password":"${UUID}"
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/vn-sh"
                 }
             },
             "sniffing":{
@@ -1088,6 +1636,96 @@ EOF
 
             },
             "tag":"block"
+        },
+        {
+            "protocol":"socks",
+            "settings":{
+                "servers":[
+                    {
+                        "address":"2a14:67c0:116::1",
+                        "port":20000,
+                        "users":[
+                            {
+                                "user":"alice",
+                                "pass":"alicefofo123..OVO"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "tag":"socks5-hk"
+        },
+        {
+            "protocol":"socks",
+            "settings":{
+                "servers":[
+                    {
+                        "address":"2a14:67c0:116::1",
+                        "port":10001,
+                        "users":[
+                            {
+                                "user":"alice",
+                                "pass":"alicefofo123..OVO"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "tag":"socks5-sg"
+        },
+        {
+            "protocol":"socks",
+            "settings":{
+                "servers":[
+                    {
+                        "address":"2a14:67c0:116::1",
+                        "port":50000,
+                        "users":[
+                            {
+                                "user":"alice",
+                                "pass":"alicefofo123..OVO"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "tag":"socks5-jp"
+        },
+        {
+            "protocol":"socks",
+            "settings":{
+                "servers":[
+                    {
+                        "address":"2a14:67c0:116::1",
+                        "port":30000,
+                        "users":[
+                            {
+                                "user":"alice",
+                                "pass":"alicefofo123..OVO"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "tag":"socks5-tw"
+        },
+        {
+            "protocol":"socks",
+            "settings":{
+                "servers":[
+                    {
+                        "address":"2a14:67c0:116::1",
+                        "port":40000,
+                        "users":[
+                            {
+                                "user":"alice",
+                                "pass":"alicefofo123..OVO"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "tag":"socks5-vn"
         },
         {
             "protocol":"wireguard",
@@ -1142,6 +1780,31 @@ EOF
         "rules":[
             {
                 "type":"field",
+                "inboundTag":["hk-vl","hk-vm","hk-tr","hk-sh"],
+                "outboundTag":"socks5-hk"
+            },
+            {
+                "type":"field",
+                "inboundTag":["sg-vl","sg-vm","sg-tr","sg-sh"],
+                "outboundTag":"socks5-sg"
+            },
+            {
+                "type":"field",
+                "inboundTag":["jp-vl","jp-vm","jp-tr","jp-sh"],
+                "outboundTag":"socks5-jp"
+            },
+            {
+                "type":"field",
+                "inboundTag":["tw-vl","tw-vm","tw-tr","tw-sh"],
+                "outboundTag":"socks5-tw"
+            },
+            {
+                "type":"field",
+                "inboundTag":["vn-vl","vn-vm","vn-tr","vn-sh"],
+                "outboundTag":"socks5-vn"
+            },
+            {
+                "type":"field",
                 "domain":[
                     "api.openai.com"
                 ],
@@ -1194,7 +1857,7 @@ create_shortcut() {
   cat > $WORK_DIR/ax.sh << EOF
 #!/usr/bin/env bash
 
-bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \$1
+bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/wuzf/ArgoXForAlice/main/argox.sh) \$1
 EOF
   chmod +x $WORK_DIR/ax.sh
   ln -sf $WORK_DIR/ax.sh /usr/bin/argox
@@ -1243,7 +1906,6 @@ export_list() {
   TLS_SERVER=${TLS_SERVER:-"$(awk -F '"' '/"server_name"/{print $4}' <<< "$JSON")"}
   SERVER=${SERVER:-"$(awk -F '"' '/"SERVER"/{print $4; exit}' <<< "$JSON")"}
   UUID=${UUID:-"$(awk -F '"' '/"password"/{print $4; exit}' <<< "$JSON")"}
-  WS_PATH=${WS_PATH:-"$(expr "$JSON" : '.*path":"/\(.*\)-vl.*')"}
   NODE_NAME=${NODE_NAME:-"$(sed -n 's/.*tag":"\(.*\) reality-vision.*/\1/gp' <<< "$JSON")"}
   SS_METHOD=${SS_METHOD:-"$(awk -F '"' '/"method"/{print $4; exit}' <<< "$JSON")"}
 
@@ -1259,18 +1921,39 @@ export_list() {
   # 若为临时隧道，处理查询方法
   grep -q 'metrics.*url' ${ARGO_DAEMON_FILE} && QUICK_TUNNEL_URL=$(text 60)
 
-  # # 生成 vmess 文件
-  VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME}-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
-
   # 生成各订阅文件
   # 生成 Clash proxy providers 订阅文件
   local CLASH_SUBSCRIBE="proxies:
   - {name: \"${NODE_NAME} reality-vision\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }
-  - {name: \"${NODE_NAME} reality-grpc\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }
-  - {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }
-  - {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: true, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}
-  - {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }
-  - {name: \"${NODE_NAME}-Sh\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
+  - {name: \"${NODE_NAME} reality-grpc\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }"
+
+  # 按协议分组生成节点 - 先生成所有地区的vless
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    CLASH_SUBSCRIBE+="
+  - {name: \"${region_name}-Vl-${NODE_NAME}\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${region}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }"
+  done
+
+  # 生成所有地区的vmess
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    CLASH_SUBSCRIBE+="
+  - {name: \"${region_name}-Vm-${NODE_NAME}\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: true, network: ws, ws-opts: {path: \"/${region}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}"
+  done
+
+  # 生成所有地区的trojan
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    CLASH_SUBSCRIBE+="
+  - {name: \"${region_name}-Tr-${NODE_NAME}\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: \"/${region}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }"
+  done
+
+  # 生成所有地区的shadowsocks
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    CLASH_SUBSCRIBE+="
+  - {name: \"${region_name}-Sh-${NODE_NAME}\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${region}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
+  done
 
   echo -n "${CLASH_SUBSCRIBE}" > $WORK_DIR/subscribe/proxies
 
@@ -1279,25 +1962,83 @@ export_list() {
 
   # 生成 Shadowrocket 订阅文件
   local SHADOWROCKET_SUBSCRIBE="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME}%20reality-vision&obfs=none&tls=1&peer=${TLS_SERVER}&xtls=2&pbk=${REALITY_PUBLIC}
-vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME}%20reality-grpc&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2048&sni=${ARGO_DOMAIN}#${NODE_NAME}-Vl
-vmess://$(echo -n "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=${NODE_NAME}-Vm&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2048&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0
-trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2048#${NODE_NAME}-Tr"
+vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME}%20reality-grpc&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}"
+
+  # 按协议分组生成节点 - 先生成所有地区的vless
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    SHADOWROCKET_SUBSCRIBE+="
+vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${region}-vl?ed=2048&sni=${ARGO_DOMAIN}#${region_name}-Vl-${NODE_NAME}"
+  done
+
+  # 生成所有地区的vmess
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    SHADOWROCKET_SUBSCRIBE+="
+vmess://$(echo -n "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=${region_name}-Vm-${NODE_NAME}&obfsParam=${ARGO_DOMAIN}&path=/${region}-vm?ed=2048&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0"
+  done
+
+  # 生成所有地区的trojan
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    SHADOWROCKET_SUBSCRIBE+="
+trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${region}-tr?ed=2048#${region_name}-Tr-${NODE_NAME}"
+  done
 
   echo -n "${SHADOWROCKET_SUBSCRIBE}" | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
 
   # 生成 V2rayN / NekoBox 订阅文件
   local V2RAYN_SUBSCRIBE="vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${NODE_NAME} reality-vision
-vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME} reality-grpc
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2048#${NODE_NAME}-Vl
-vmess://$(echo -n "$VMESS" | base64 -w0)
-trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2048#${NODE_NAME}-Tr"
+vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME} reality-grpc"
+
+  # 按协议分组生成节点 - 先生成所有地区的vless
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    V2RAYN_SUBSCRIBE+="
+vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${region}-vl%3Fed%3D2048#${region_name}-Vl-${NODE_NAME}"
+  done
+
+  # 生成所有地区的vmess
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    local VMESS="{ \"v\": \"2\", \"ps\": \"${region_name}-Vm-${NODE_NAME}\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${region}-vm?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
+    V2RAYN_SUBSCRIBE+="
+vmess://$(echo -n "$VMESS" | base64 -w0)"
+  done
+
+  # 生成所有地区的trojan
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    V2RAYN_SUBSCRIBE+="
+trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${region}-tr?ed%3D2048#${region_name}-Tr-${NODE_NAME}"
+  done
 
   echo -n "${V2RAYN_SUBSCRIBE}" | base64 -w0 > $WORK_DIR/subscribe/base64
 
   # 生成 Sing-box 订阅文件
-  local INBOUND_REPLACE="{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} reality-vision\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }, { \"type\": \"vless\", \"tag\":\"${NODE_NAME} reality-grpc\", \"server\": \"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }, { \"type\":\"vless\", \"tag\":\"${NODE_NAME}-Vl\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2048, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\":\"vmess\", \"tag\":\"${NODE_NAME}-Vm\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2048, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\":\"trojan\", \"tag\":\"${NODE_NAME}-Tr\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2048, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }"
-  local NODE_REPLACE="\"${NODE_NAME} reality-vision\", \"${NODE_NAME} reality-grpc\", \"${NODE_NAME}-Vl\", \"${NODE_NAME}-Vm\", \"${NODE_NAME}-Tr\""
+  local INBOUND_REPLACE="{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} reality-vision\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }, { \"type\": \"vless\", \"tag\":\"${NODE_NAME} reality-grpc\", \"server\": \"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }"
+  local NODE_REPLACE="\"${NODE_NAME} reality-vision\", \"${NODE_NAME} reality-grpc\""
+
+  # 按协议分组生成节点 - 先生成所有地区的vless
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    INBOUND_REPLACE+=", { \"type\":\"vless\", \"tag\":\"${region_name}-Vl-${NODE_NAME}\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${region}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2048, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }"
+    NODE_REPLACE+=", \"${region_name}-Vl-${NODE_NAME}\""
+  done
+
+  # 生成所有地区的vmess
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    INBOUND_REPLACE+=", { \"type\":\"vmess\", \"tag\":\"${region_name}-Vm-${NODE_NAME}\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${region}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2048, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }"
+    NODE_REPLACE+=", \"${region_name}-Vm-${NODE_NAME}\""
+  done
+
+  # 生成所有地区的trojan
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    INBOUND_REPLACE+=", { \"type\":\"trojan\", \"tag\":\"${region_name}-Tr-${NODE_NAME}\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${region}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2048, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }"
+    NODE_REPLACE+=", \"${region_name}-Tr-${NODE_NAME}\""
+  done
 
   # 模板
   local SING_BOX_JSON1=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box1)
@@ -1326,10 +2067,22 @@ EOF
 │                │  │                │
 └────────────────┘  └────────────────┘
 ----------------------------
-$(info "$(sed "G" <<< "${V2RAYN_SUBSCRIBE}")
+$(info "$(sed "G" <<< "${V2RAYN_SUBSCRIBE}")")"
 
-ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443#${NODE_NAME}-Sh
-由于该软件导出的链接不全，请自行处理如下: 传输协议: WS , 伪装域名: ${ARGO_DOMAIN} , 路径: /${WS_PATH}-sh?ed=2048 , 传输层安全: tls , sni: ${ARGO_DOMAIN}")
+EXPORT_LIST_FILE+="
+
+多地区 ShadowSocks 节点:"
+  
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    EXPORT_LIST_FILE+="
+ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443#${region_name}-Sh-${NODE_NAME}"
+  done
+  
+  EXPORT_LIST_FILE+="
+由于该软件导出的链接不全，请自行处理如下: 传输协议: WS , 伪装域名: ${ARGO_DOMAIN} , 路径: /{region}-sh?ed=2048 , 传输层安全: tls , sni: ${ARGO_DOMAIN}"
+
+  EXPORT_LIST_FILE+="
 
 *******************************************
 ┌────────────────┐
@@ -1436,7 +2189,7 @@ change_argo() {
     case "$CHANGE_TO" in
       1 )
         cmd_systemctl disable argo
-        [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
+          [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
         if [ "$SYSTEM" = 'Alpine' ]; then
           # 修改 Alpine 的 OpenRC 服务文件
           local ARGS="--edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080"
@@ -1450,8 +2203,8 @@ change_argo() {
         SERVER_IP=$(awk -F '"' '/"SERVER_IP"/{print $4}' $WORK_DIR/*inbound*.json)
         argo_variable
         cmd_systemctl disable argo
-        if [ -n "$ARGO_TOKEN" ]; then
-          [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
+          if [ -n "$ARGO_TOKEN" ]; then
+            [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
           if [ "$SYSTEM" = 'Alpine' ]; then
             # 修改 Alpine 的 OpenRC 服务文件
             local ARGS="--edge-ip-version auto run --token ${ARGO_TOKEN}"
@@ -1460,9 +2213,9 @@ change_argo() {
             # 修改 systemd 服务文件
             sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" ${ARGO_DAEMON_FILE}
           fi
-        elif [ -n "$ARGO_JSON" ]; then
-          [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-          json_argo
+          elif [ -n "$ARGO_JSON" ]; then
+            [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
+            json_argo
           if [ "$SYSTEM" = 'Alpine' ]; then
             # 修改 Alpine 的 OpenRC 服务文件
             local ARGS="--edge-ip-version auto --config $WORK_DIR/tunnel.yml run"

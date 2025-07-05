@@ -1,4 +1,10 @@
-# 【ArgoX】 = Argo + Xray
+# 【ArgoXForAlice】 = Argo + Xray For Alice
+
+## 致谢
+
+本项目基于 [fscarmen/ArgoX](https://github.com/fscarmen/ArgoX) 项目进行定制开发，感谢原作者 fscarmen 的卓越贡献！
+
+ArgoXForAlice 在原项目基础上专门为 alice.ws的免费IPV6机器定制了一键生成多地区出口代理节点的功能，保持了原项目的所有优秀特性。
 
 * * *
 
@@ -6,15 +12,18 @@
 
 - [更新信息](README.md#更新信息)
 - [项目特点](README.md#项目特点)
-- [ArgoX for VPS 运行脚本](README.md#argox-for-vps-运行脚本)
+- [ArgoX for Alice VPS 运行脚本](README.md#argox-for-vps-运行脚本)
 - [Argo Json 的获取](README.md#argo-json-的获取)
 - [Argo Token 的获取](README.md#argo-token-的获取)
+- [多地区 SOCKS5 代理说明](README.md#多地区-socks5-代理说明)
 - [各种场景下 xray outbound 和 routing 模板的说明](README.md#各种场景下-xray-outbound-和-routing-模板的说明)
 - [主体目录文件及说明](README.md#主体目录文件及说明)
 - [免责声明](README.md#免责声明)
 
 * * *
 ## 更新信息
+2025.01.07 v1.7.0 1. Added multi-region SOCKS5 proxy support with automatic path-based routing; 2. Use emoji flags for region identification (🇭🇰, 🇸🇬, 🇯🇵, 🇹🇼, 🇻🇳); 3. Streamlined installation process from 8 steps to 6 steps; 4. Default language changed to Chinese; 5. Node output order grouped by protocol; 6. IPv6 priority for default IP selection; 7. Removed manual node name input; 8. Node naming format changed to region-first; 1. 新增多地区 SOCKS5 代理支持，自动基于路径进行路由分流; 2. 使用emoji旗帜标识地区 (🇭🇰, 🇸🇬, 🇯🇵, 🇹🇼, 🇻🇳); 3. 简化安装流程从8步减少到6步; 4. 默认语言改为中文; 5. 节点输出按协议分组; 6. 默认IP优先选择IPv6; 7. 删除手动输入节点名称步骤; 8. 节点命名格式改为地区优先
+
 2025.04.26 v1.6.9 Added the ability to change CDNs online using [argox -d]; 新增使用 [argox -d] 在线更换 CDN 功能
 
 2025.04.25 v1.6.8 1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code; 1. 更改 GitHub 代理; 2. 处理 CentOS 防火墙端口管理; 3. 优化代码
@@ -74,15 +83,16 @@
 * Argo 是内网穿透的隧道，既 Xray 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守443被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
 * Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
 * 同时支持 Xray 的直连协议: reality vison 和 reality gRPC; 以及 ws 回落分流的 4 种主流协议: vless /  vmess / trojan / shadowsocks + WSS (ws + tls)；
+* **新增多地区 SOCKS5 代理支持**: 内置5个地区的SOCKS5出口代理（🇭🇰香港、🇸🇬新加坡、🇯🇵日本、🇹🇼台湾、🇻🇳越南），用户可通过不同路径自动选择不同地区的代理出口，实现智能分流；
 * 内置 warp 链式代理解锁 chatGPT；
 * 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Nekobox / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
 * 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到5秒。
 
 
-## ArgoX for VPS 运行脚本:
+## ArgoX for Alice VPS 运行脚本:
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/wuzf/ArgoXForAlice/main/argox.sh)
 ```
 
   | Option 参数 | Remark 备注 |
@@ -121,6 +131,55 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 <img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
 
 
+## 多地区 SOCKS5 代理说明
+
+v1.7.0 版本新增了Alice多地区 SOCKS5 代理支持，内置了5个地区的代理出口：
+
+| 地区 | 标识 | 路径标识 | 端口 |
+|------|------|----------|------|
+| 香港 | 🇭🇰 | hk | 20000 |
+| 新加坡 | 🇸🇬 | sg | 10001 |
+| 日本 | 🇯🇵 | jp | 50000 |
+| 台湾 | 🇹🇼 | tw | 30000 |
+| 越南 | 🇻🇳 | vn | 40000 |
+
+### 使用方法
+
+1. **节点命名格式**: 现在节点名称采用 `地区标识-协议-服务器名` 的格式，例如：
+   - `🇭🇰-Vl-hostname` (香港VLESS节点)
+   - `🇸🇬-Vm-hostname` (新加坡VMess节点)
+   - `🇯🇵-Tr-hostname` (日本Trojan节点)
+
+2. **智能路由**: 系统会根据客户端选择的节点自动路由到对应地区的SOCKS5代理：
+   - 使用香港节点(hk-*)，流量会通过香港的SOCKS5代理出口
+   - 使用新加坡节点(sg-*)，流量会通过新加坡的SOCKS5代理出口
+   - 其他地区同理
+
+3. **协议支持**: 每个地区都支持完整的4种协议：
+   - **VLESS** (path: `/地区-vl`)
+   - **VMess** (path: `/地区-vm`)
+   - **Trojan** (path: `/地区-tr`)
+   - **Shadowsocks** (path: `/地区-sh`)
+
+4. **订阅分组**: 在订阅文件中，节点按协议分组显示：
+   - 先显示所有地区的VLESS节点
+   - 再显示所有地区的VMess节点
+   - 然后是Trojan节点
+   - 最后是Shadowsocks节点
+
+### 配置说明
+
+SOCKS5代理配置位于 `/etc/argox/outbound.json` 文件中，包含：
+- 代理服务器地址: `2a14:67c0:116::1`
+- 认证用户名: `alice`
+- 认证密码: `alicefofo123..OVO`
+- 不同地区使用不同端口进行区分
+
+### 自定义配置
+
+如需修改SOCKS5代理配置，可以编辑 `outbound.json` 文件中的相应配置段，修改代理服务器地址、端口、用户名和密码等参数。
+
+
 ## 各种场景下 xray outbound 和 routing 模板的说明
 
 * 域名分类中包含的各具体域名: https://github.com/v2fly/domain-list-community/blob/master/data
@@ -155,7 +214,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ├── inbound.json              # vless / vmess / ss / trojan + WSS 入站配置文件
 ├── language                  # 存放脚本语言文件，E 为英文，C 为中文
 ├── list                      # 节点信息列表
-├── outbound.json             # 出站和路由配置文件，chatGPT 使用 warp ipv6 链式代理出站
+├── outbound.json             # 出站和路由配置文件，chatGPT 使用 warp ipv6 链式代理出站，包含多地区SOCKS5代理配置和智能路由规则
 ├── xray                      # xray 主程序
 ├── nginx.conf                # Nginx 配置文件
 ├── ax.sh                     # 快捷方式脚本文件
