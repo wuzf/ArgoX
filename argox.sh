@@ -23,7 +23,9 @@ declare -A SOCKS5_PORTS=(
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 TLS_SERVER='addons.mozilla.org'
-METRICS_PORT='3333'
+# 端口定义
+METRICS_PORT='3333'      # cloudflared监控指标端口
+LOCAL_PROXY_PORT='8080'  # 本地代理服务端口（Xray监听端口）
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 DEFAULT_XRAY_VERSION='25.4.30'
@@ -615,6 +617,20 @@ check_dependencies() {
   [[ "${DEPS[@]}" =~ 'nginx' ]] && cmd_systemctl disable nginx >/dev/null 2>&1
 }
 
+# 检测本地代理端口是否被占用，如果被占用自动寻找下一个可用端口
+check_local_proxy_port() {
+  local original_port=$LOCAL_PROXY_PORT
+  while ss -nltup | grep -q ":$LOCAL_PROXY_PORT"; do
+    warning "端口 $LOCAL_PROXY_PORT 已被占用，正在寻找下一个可用端口..."
+    ((LOCAL_PROXY_PORT++))
+    # 防止端口超出范围
+    [ "$LOCAL_PROXY_PORT" -gt 65535 ] && LOCAL_PROXY_PORT=8081
+    # 避免无限循环
+    [ "$LOCAL_PROXY_PORT" -eq "$original_port" ] && error "无法找到可用端口，请检查系统配置"
+  done
+  [ "$LOCAL_PROXY_PORT" != "$original_port" ] && info "已将本地代理端口从 $original_port 更改为 $LOCAL_PROXY_PORT"
+}
+
 # 检查并安装 nginx
 check_nginx() {
   if [ ! -x "$(type -p nginx)" ]; then
@@ -726,7 +742,7 @@ credentials-file: $WORK_DIR/tunnel.json
 
 ingress:
   - hostname: ${ARGO_DOMAIN}
-    service: http://localhost:8080
+    service: http://localhost:${LOCAL_PROXY_PORT}
   - service: http_status:404
 EOF
 }
@@ -734,6 +750,9 @@ EOF
 install_argox() {
   argo_variable
   xray_variable
+  
+  # 检测本地代理端口是否被占用
+  check_local_proxy_port
 
   wait
   # 生成 reality 的公私钥
@@ -755,7 +774,7 @@ install_argox() {
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:${LOCAL_PROXY_PORT}"
   fi
 
   # Argo 生成守护进程文件
@@ -977,7 +996,7 @@ EOF
         ${REALITY_INBOUNDS},
         {
             "listen":"127.0.0.1",
-            "port":8080,
+            "port":${LOCAL_PROXY_PORT},
             "protocol":"vless",
             "settings":{
                 "clients":[
@@ -1947,7 +1966,7 @@ export_list() {
     fi
   fi
 
-  if grep -qs "^${DAEMON_RUN_PATTERN}.*:8080" ${ARGO_DAEMON_FILE}; then
+  if grep -qs "^${DAEMON_RUN_PATTERN}.*:${LOCAL_PROXY_PORT}" ${ARGO_DAEMON_FILE}; then
     local a=5
     until [[ -n "$ARGO_DOMAIN" || "$a" = 0 ]]; do
       sleep 2
@@ -2473,6 +2492,10 @@ change_argo() {
 
   hint "\n $(text 40) \n"
   unset ARGO_DOMAIN
+  
+  # 检测本地代理端口是否被占用
+  check_local_proxy_port
+  
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
       1 )
@@ -2480,11 +2503,11 @@ change_argo() {
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
         if [ "$SYSTEM" = 'Alpine' ]; then
           # 修改 Alpine 的 OpenRC 服务文件
-          local ARGS="--edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080"
+          local ARGS="--edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:${LOCAL_PROXY_PORT}"
           sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
         else
           # 修改 systemd 服务文件
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080@g" ${ARGO_DAEMON_FILE}
+          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:${LOCAL_PROXY_PORT}@g" ${ARGO_DAEMON_FILE}
         fi
         ;;
       2 )
@@ -2647,7 +2670,7 @@ menu_setting() {
       cmd_systemctl enable argo
       sleep 2
       cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
-      grep -qs "^${DAEMON_RUN_PATTERN}.*8080$" ${ARGO_DAEMON_FILE} && export_list
+      grep -qs "^${DAEMON_RUN_PATTERN}.*${LOCAL_PROXY_PORT}$" ${ARGO_DAEMON_FILE} && export_list
     }
 
     [[ ${STATUS[1]} = "$(text 28)" ]] &&
@@ -2726,7 +2749,7 @@ while getopts ":AaXxTtDdUuNnVvBbF:f:" OPTNAME; do
           sleep 2
           if cmd_systemctl status argo &>/dev/null; then
             info "\n Argo $(text 28) $(text 37)"
-            grep -qs "^${DAEMON_RUN_PATTERN}.*8080$" ${ARGO_DAEMON_FILE} && export_list
+            grep -qs "^${DAEMON_RUN_PATTERN}.*${LOCAL_PROXY_PORT}$" ${ARGO_DAEMON_FILE} && export_list
           else
             error " Argo $(text 28) $(text 38) "
           fi
