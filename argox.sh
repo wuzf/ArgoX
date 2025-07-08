@@ -85,6 +85,8 @@ E[23]="Virtualization"
 C[23]="虚拟化"
 E[24]="Choose (default 1):"
 C[24]="请选择 (默认选择 1):"
+E[75]="Choose (default 2):"
+C[75]="请选择 (默认选择 2):"
 E[25]="Curren architecture \$(uname -m) is not supported. Feedback: [https://github.com/wuzf/ArgoXForAlice/issues]"
 C[25]="当前架构 \$(uname -m) 暂不支持,问题反馈:[https://github.com/wuzf/ArgoXForAlice/issues]"
 E[26]="Not install"
@@ -247,7 +249,7 @@ select_language() {
     case $(cat $WORK_DIR/language 2>&1) in
       E ) L=E ;;
       C ) L=C ;;
-      * ) [ -z "$L" ] && L=C && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
+      * ) [ -z "$L" ] && L=C && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 75) " LANGUAGE
       [ "$LANGUAGE" = 1 ] && L=E ;;
     esac
   fi
