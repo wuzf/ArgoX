@@ -13,13 +13,7 @@ declare -A WS_PATHS=(
   ["tw"]="🇹🇼台湾"
   ["vn"]="🇻🇳越南"
 )
-declare -A SOCKS5_PORTS=(
-  ["hk"]="20000"
-  ["sg"]="10001"
-  ["jp"]="50000"
-  ["tw"]="30000"
-  ["vn"]="40000"
-)
+
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 TLS_SERVER='addons.mozilla.org'
@@ -896,9 +890,13 @@ EOF
     local vision_port="${!vision_port_var}"
     local grpc_port="${!grpc_port_var}"
     
+    # 新tag定义
+    local vision_tag="${region}-reality-vision"
+    local grpc_tag="${region}-reality-grpc"
+    
     # Vision Reality节点
     REALITY_INBOUNDS+="{
-            \"tag\":\"${region_name}-Reality-Vision-${NODE_NAME}\",
+            \"tag\":\"${vision_tag}\",
             \"protocol\":\"vless\",
             \"port\":${vision_port},
             \"settings\":{
@@ -939,7 +937,7 @@ EOF
         {
             \"port\":${grpc_port},
             \"protocol\":\"vless\",
-            \"tag\":\"${region_name}-Reality-gRPC-${NODE_NAME}\",
+            \"tag\":\"${grpc_tag}\",
             \"settings\":{
                 \"clients\":[
                     {
@@ -1860,27 +1858,27 @@ EOF
         "rules":[
             {
                 "type":"field",
-                "inboundTag":["hk-vl","hk-vm","hk-tr","hk-sh","🇭🇰香港-Reality-Vision-${NODE_NAME}","🇭🇰香港-Reality-gRPC-${NODE_NAME}"],
+                "inboundTag":["hk-vl","hk-vm","hk-tr","hk-sh","hk-reality-vision","hk-reality-grpc"],
                 "outboundTag":"socks5-hk"
             },
             {
                 "type":"field",
-                "inboundTag":["sg-vl","sg-vm","sg-tr","sg-sh","🇸🇬新加坡-Reality-Vision-${NODE_NAME}","🇸🇬新加坡-Reality-gRPC-${NODE_NAME}"],
+                "inboundTag":["sg-vl","sg-vm","sg-tr","sg-sh","sg-reality-vision","sg-reality-grpc"],
                 "outboundTag":"socks5-sg"
             },
             {
                 "type":"field",
-                "inboundTag":["jp-vl","jp-vm","jp-tr","jp-sh","🇯🇵日本-Reality-Vision-${NODE_NAME}","🇯🇵日本-Reality-gRPC-${NODE_NAME}"],
+                "inboundTag":["jp-vl","jp-vm","jp-tr","jp-sh","jp-reality-vision","jp-reality-grpc"],
                 "outboundTag":"socks5-jp"
             },
             {
                 "type":"field",
-                "inboundTag":["tw-vl","tw-vm","tw-tr","tw-sh","🇹🇼台湾-Reality-Vision-${NODE_NAME}","🇹🇼台湾-Reality-gRPC-${NODE_NAME}"],
+                "inboundTag":["tw-vl","tw-vm","tw-tr","tw-sh","tw-reality-vision","tw-reality-grpc"],
                 "outboundTag":"socks5-tw"
             },
             {
                 "type":"field",
-                "inboundTag":["vn-vl","vn-vm","vn-tr","vn-sh","🇻🇳越南-Reality-Vision-${NODE_NAME}","🇻🇳越南-Reality-gRPC-${NODE_NAME}"],
+                "inboundTag":["vn-vl","vn-vm","vn-tr","vn-sh","vn-reality-vision","vn-reality-grpc"],
                 "outboundTag":"socks5-vn"
             },
             {
@@ -1987,93 +1985,26 @@ export_list() {
   TLS_SERVER=${TLS_SERVER:-"$(awk -F '"' '/"server_name"/{print $4}' <<< "$JSON")"}
   SERVER=${SERVER:-"$(awk -F '"' '/"SERVER"/{print $4; exit}' <<< "$JSON")"}
   UUID=${UUID:-"$(awk -F '"' '/"password"/{print $4; exit}' <<< "$JSON")"}
-  NODE_NAME=${NODE_NAME:-"$(sed -n 's/.*tag":".*-Reality-Vision-\(.*\)".*/\1/gp' <<< "$JSON" | head -1)"}
+  NODE_NAME=${NODE_NAME:-"$(sed -n 's/.*tag\":\".*-reality-vision-\(.*\)\".*/\1/gp' <<< "$JSON" | head -1)"}
   SS_METHOD=${SS_METHOD:-"$(awk -F '"' '/"method"/{print $4; exit}' <<< "$JSON")"}
 
-  # 重新设置各地区Reality端口变量 - 使用更可靠的方法
+  # 重新设置各地区Reality端口变量
   for region in "${!WS_PATHS[@]}"; do
     local region_name="${WS_PATHS[$region]}"
-    
-    # 使用多种方法尝试提取端口
     local vision_port=""
     local grpc_port=""
     
-    # 方法1: 尝试使用jq提取端口（如果可用且JSON有效）
+    # 直接用 jq 查找端口，因为 JSON 结构正确
     if [ -x "$WORK_DIR/jq" ]; then
-      # 测试JSON是否有效
-      if echo "$JSON" | $WORK_DIR/jq . >/dev/null 2>&1; then
-        vision_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag==\"${region_name}-Reality-Vision-${NODE_NAME}\") | .port" 2>/dev/null)
-        grpc_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag==\"${region_name}-Reality-gRPC-${NODE_NAME}\") | .port" 2>/dev/null)
-        
-        # 检查jq结果是否有效
-        [ "$vision_port" = "null" ] && vision_port=""
-        [ "$grpc_port" = "null" ] && grpc_port=""
-        
-        # 如果jq找不到节点，尝试更宽松的匹配
-        if [ -z "$grpc_port" ]; then
-          grpc_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag | contains(\"Reality-gRPC\") and contains(\"${NODE_NAME}\") and contains(\"${region_name}\")) | .port" 2>/dev/null)
-          [ "$grpc_port" = "null" ] && grpc_port=""
-        fi
-        
-        if [ -z "$vision_port" ]; then
-          vision_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag | contains(\"Reality-Vision\") and contains(\"${NODE_NAME}\") and contains(\"${region_name}\")) | .port" 2>/dev/null)
-          [ "$vision_port" = "null" ] && vision_port=""
-        fi
-      fi
-    fi
-    
-    # 方法2: 如果jq方法失败，使用简单的grep+awk组合
-    if [ -z "$vision_port" ]; then
-      # 尝试精确匹配
-      vision_port=$(echo "$JSON" | grep -A 10 "\"tag\":\"${region_name}-Reality-Vision-${NODE_NAME}\"" | grep "\"port\"" | head -1 | awk -F'[:]' '{print $2}' | tr -d ' ,"' | grep -o '[0-9]*')
+      vision_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag==\"${region}-reality-vision\") | .port" 2>/dev/null)
+      grpc_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag==\"${region}-reality-grpc\") | .port" 2>/dev/null)
       
-      # 如果精确匹配失败，尝试宽松匹配
-      if [ -z "$vision_port" ]; then
-        vision_port=$(echo "$JSON" | grep -A 10 "Reality-Vision.*${NODE_NAME}" | grep "\"port\"" | head -1 | awk -F'[:]' '{print $2}' | tr -d ' ,"' | grep -o '[0-9]*')
-      fi
+      # 如果 jq 返回 null，设为空字符串
+      [ "$vision_port" = "null" ] && vision_port=""
+      [ "$grpc_port" = "null" ] && grpc_port=""
     fi
-    
-    if [ -z "$grpc_port" ]; then
-      # 尝试精确匹配
-      grpc_port=$(echo "$JSON" | grep -A 10 "\"tag\":\"${region_name}-Reality-gRPC-${NODE_NAME}\"" | grep "\"port\"" | head -1 | awk -F'[:]' '{print $2}' | tr -d ' ,"' | grep -o '[0-9]*')
-      
-      # 如果精确匹配失败，尝试宽松匹配
-      if [ -z "$grpc_port" ]; then
-        grpc_port=$(echo "$JSON" | grep -A 10 "Reality-gRPC.*${NODE_NAME}" | grep "\"port\"" | head -1 | awk -F'[:]' '{print $2}' | tr -d ' ,"' | grep -o '[0-9]*')
-      fi
-    fi
-    
-    # 方法3: 如果仍然失败，尝试直接从文件中按行解析
-    if [ -z "$vision_port" ]; then
-      vision_port=$(grep -A 20 "\"tag\":\"${region_name}-Reality-Vision-${NODE_NAME}\"" $WORK_DIR/inbound.json 2>/dev/null | grep "\"port\"" | head -1 | sed 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9]\+\).*/\1/')
-      
-      # 如果仍然失败，尝试按端口顺序推算（Vision应该是奇数端口）
-      if [ -z "$vision_port" ]; then
-        # 根据地区顺序计算端口：vn(0), sg(1), hk(2), tw(3), jp(4) -> base_port + region_index * 2
-        case "$region" in
-          "vn") vision_port=$(awk '/Reality.*Vision.*'"${NODE_NAME}"'/{found=1} found && /port/{print $2; exit}' $WORK_DIR/inbound.json | tr -d ',' | head -1) ;;
-          "sg") local base_port=$(awk '/Reality.*Vision.*'"${NODE_NAME}"'/{found=1} found && /port/{print $2; exit}' $WORK_DIR/inbound.json | tr -d ',' | head -1)
-                [ -n "$base_port" ] && vision_port=$((base_port + 2)) ;;
-          "hk") local base_port=$(awk '/Reality.*Vision.*'"${NODE_NAME}"'/{found=1} found && /port/{print $2; exit}' $WORK_DIR/inbound.json | tr -d ',' | head -1)
-                [ -n "$base_port" ] && vision_port=$((base_port + 4)) ;;
-          "tw") local base_port=$(awk '/Reality.*Vision.*'"${NODE_NAME}"'/{found=1} found && /port/{print $2; exit}' $WORK_DIR/inbound.json | tr -d ',' | head -1)
-                [ -n "$base_port" ] && vision_port=$((base_port + 6)) ;;
-          "jp") local base_port=$(awk '/Reality.*Vision.*'"${NODE_NAME}"'/{found=1} found && /port/{print $2; exit}' $WORK_DIR/inbound.json | tr -d ',' | head -1)
-                [ -n "$base_port" ] && vision_port=$((base_port + 8)) ;;
-        esac
-      fi
-    fi
-    
-    if [ -z "$grpc_port" ]; then
-      grpc_port=$(grep -A 20 "\"tag\":\"${region_name}-Reality-gRPC-${NODE_NAME}\"" $WORK_DIR/inbound.json 2>/dev/null | grep "\"port\"" | head -1 | sed 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9]\+\).*/\1/')
-      
-      # 如果vision_port存在，gRPC端口应该是vision_port + 1
-      if [ -z "$grpc_port" ] && [ -n "$vision_port" ] && [[ "$vision_port" =~ ^[0-9]+$ ]]; then
-        grpc_port=$((vision_port + 1))
-      fi
-    fi
-    
-    # 方法4: 如果解析仍然失败，尝试使用全局变量（如果存在）
+
+    # 如果 jq 不可用或查找失败，使用全局变量
     if [ -z "$vision_port" ]; then
       local vision_var="REALITY_PORT_${region}_vision"
       vision_port="${!vision_var}"
@@ -2083,20 +2014,19 @@ export_list() {
       local grpc_var="REALITY_PORT_${region}_grpc"
       grpc_port="${!grpc_var}"
     fi
-    
+
     # 验证端口是否为有效数字
     if [[ ! "$vision_port" =~ ^[0-9]+$ ]] || [ "$vision_port" -lt 1 ] || [ "$vision_port" -gt 65535 ]; then
-      vision_port=""
+      local vision_var="REALITY_PORT_${region}_vision"
+      vision_port="${!vision_var}"  # 再次尝试使用全局变量
     fi
     
     if [[ ! "$grpc_port" =~ ^[0-9]+$ ]] || [ "$grpc_port" -lt 1 ] || [ "$grpc_port" -gt 65535 ]; then
-      grpc_port=""
+      local grpc_var="REALITY_PORT_${region}_grpc"
+      grpc_port="${!grpc_var}"  # 再次尝试使用全局变量
     fi
-    
-    # 调试信息（只在端口完全解析失败时显示）
-    [ -z "$vision_port" ] && warning "Warning: Unable to get vision port for region $region_name"
-    [ -z "$grpc_port" ] && warning "Warning: Unable to get grpc port for region $region_name"
-    
+
+    # 设置全局变量
     declare -g "REALITY_PORT_${region}_vision"="$vision_port"
     declare -g "REALITY_PORT_${region}_grpc"="$grpc_port"
   done
@@ -2128,12 +2058,12 @@ export_list() {
     # 只有当端口有效时才生成节点
     if [ -n "$vision_port" ] && [ "$vision_port" != "" ] && [ "$vision_port" != "-1" ]; then
       CLASH_SUBSCRIBE+="
-  - {name: \"${region_name}-Reality-Vision-${NODE_NAME}\", type: vless, server: ${SERVER_IP}, port: ${vision_port}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }"
+  - {name: \"${region_name}-reality-vision-${NODE_NAME}\", type: vless, server: ${SERVER_IP}, port: ${vision_port}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }"
     fi
     
     if [ -n "$grpc_port" ] && [ "$grpc_port" != "" ] && [ "$grpc_port" != "-1" ]; then
       CLASH_SUBSCRIBE+="
-  - {name: \"${region_name}-Reality-gRPC-${NODE_NAME}\", type: vless, server: ${SERVER_IP}, port: ${grpc_port}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }"
+  - {name: \"${region_name}-reality-grpc-${NODE_NAME}\", type: vless, server: ${SERVER_IP}, port: ${grpc_port}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }"
     fi
   done
 
@@ -2183,12 +2113,12 @@ export_list() {
     
     # 只有当端口有效时才生成节点
     if [ -n "$vision_port" ] && [ "$vision_port" != "" ] && [ "$vision_port" != "-1" ]; then
-      SHADOWROCKET_SUBSCRIBE+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${vision_port}" | base64 -w0)?remarks=${region_name}-Reality-Vision-${NODE_NAME}&obfs=none&tls=1&peer=${TLS_SERVER}&xtls=2&pbk=${REALITY_PUBLIC}
+      SHADOWROCKET_SUBSCRIBE+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${vision_port}" | base64 -w0)?remarks=${region_name}-reality-vision-${NODE_NAME}&obfs=none&tls=1&peer=${TLS_SERVER}&xtls=2&pbk=${REALITY_PUBLIC}
 "
     fi
     
     if [ -n "$grpc_port" ] && [ "$grpc_port" != "" ] && [ "$grpc_port" != "-1" ]; then
-      SHADOWROCKET_SUBSCRIBE+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${grpc_port}" | base64 -w0)?remarks=${region_name}-Reality-gRPC-${NODE_NAME}&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}
+      SHADOWROCKET_SUBSCRIBE+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${grpc_port}" | base64 -w0)?remarks=${region_name}-reality-grpc-${NODE_NAME}&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}
 "
     fi
   done
@@ -2229,15 +2159,18 @@ trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websoc
     
     # 只有当端口有效时才生成节点
     if [ -n "$vision_port" ] && [ "$vision_port" != "" ] && [ "$vision_port" != "-1" ]; then
-      V2RAYN_SUBSCRIBE+="vless://${UUID}@${SERVER_IP_1}:${vision_port}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${region_name}-Reality-Vision-${NODE_NAME}
+      V2RAYN_SUBSCRIBE+="vless://${UUID}@${SERVER_IP_1}:${vision_port}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${region_name}-reality-vision-${NODE_NAME}
 "
     fi
     
     if [ -n "$grpc_port" ] && [ "$grpc_port" != "" ] && [ "$grpc_port" != "-1" ]; then
-      V2RAYN_SUBSCRIBE+="vless://${UUID}@${SERVER_IP_1}:${grpc_port}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${region_name}-Reality-gRPC-${NODE_NAME}
+      V2RAYN_SUBSCRIBE+="vless://${UUID}@${SERVER_IP_1}:${grpc_port}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${region_name}-reality-grpc-${NODE_NAME}
 "
     fi
   done
+
+  V2RAYN_SUBSCRIBE+="
+"  # 添加一个额外的空行，分隔 Reality 节点和其他节点
 
   # 按协议分组生成节点 - 先生成所有地区的vless
   for region in "${!WS_PATHS[@]}"; do
@@ -2282,9 +2215,9 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
         NODE_REPLACE+=", "
       fi
       
-      INBOUND_REPLACE+="{ \"type\":\"vless\", \"tag\":\"${region_name}-Reality-Vision-${NODE_NAME}\", \"server\":\"${SERVER_IP}\", \"server_port\": ${vision_port}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }, { \"type\": \"vless\", \"tag\":\"${region_name}-Reality-gRPC-${NODE_NAME}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${grpc_port}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }"
+      INBOUND_REPLACE+="{ \"type\":\"vless\", \"tag\":\"${region}-reality-vision\", \"server\":\"${SERVER_IP}\", \"server_port\": ${vision_port}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }, { \"type\": \"vless\", \"tag\":\"${region}-reality-grpc\", \"server\": \"${SERVER_IP}\", \"server_port\": ${grpc_port}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }"
       
-      NODE_REPLACE+="\"${region_name}-Reality-Vision-${NODE_NAME}\", \"${region_name}-Reality-gRPC-${NODE_NAME}\""
+      NODE_REPLACE+="\"${region}-reality-vision\", \"${region}-reality-grpc\""
     fi
   done
 
@@ -2368,28 +2301,7 @@ ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443#${region_name}
   done
   
   EXPORT_LIST_FILE+="
-由于该软件导出的链接不全，请自行处理如下: 传输协议: WS , 伪装域名: ${ARGO_DOMAIN} , 路径: /{region}-sh?ed=2048 , 传输层安全: tls , sni: ${ARGO_DOMAIN}
-
-多地区 Reality 节点:"
-  
-  for region in "${!WS_PATHS[@]}"; do
-    local region_name="${WS_PATHS[$region]}"
-    local vision_port_var="REALITY_PORT_${region}_vision"
-    local grpc_port_var="REALITY_PORT_${region}_grpc"
-    local vision_port="${!vision_port_var}"
-    local grpc_port="${!grpc_port_var}"
-    
-    # 只有当端口有效时才显示节点
-    if [ -n "$vision_port" ] && [ "$vision_port" != "" ] && [ "$vision_port" != "-1" ]; then
-      EXPORT_LIST_FILE+="
-vless://${UUID}@${SERVER_IP}:${vision_port}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${region_name}-Reality-Vision-${NODE_NAME}"
-    fi
-    
-    if [ -n "$grpc_port" ] && [ "$grpc_port" != "" ] && [ "$grpc_port" != "-1" ]; then
-      EXPORT_LIST_FILE+="
-vless://${UUID}@${SERVER_IP}:${grpc_port}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${region_name}-Reality-gRPC-${NODE_NAME}"
-    fi
-  done
+由于该软件导出的链接不全，请自行处理如下: 传输协议: WS , 伪装域名: ${ARGO_DOMAIN} , 路径: /{region}-sh?ed=2048 , 传输层安全: tls , sni: ${ARGO_DOMAIN}"
 
   EXPORT_LIST_FILE+="
 
