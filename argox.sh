@@ -12,6 +12,7 @@ declare -A WS_PATHS=(
   ["jp"]="🇯🇵日本"
   ["tw"]="🇹🇼台湾"
   ["vn"]="🇻🇳越南"
+  ["direct"]="Direct"
 )
 
 WORK_DIR='/etc/argox'
@@ -512,8 +513,8 @@ xray_variable() {
     ss -nltup | grep -q ":$REALITY_PORT" && warning "\n $(text 61) \n" && unset REALITY_PORT
   done
   
-  # 分配多地区Reality端口，需要10个端口（5个地区 x 2个协议）
-  REALITY_PORTS=($(allocate_reality_ports $REALITY_PORT 10))
+  # 分配多地区Reality端口，需要12个端口（6个地区 x 2个协议）
+  REALITY_PORTS=($(allocate_reality_ports $REALITY_PORT 12))
   
   # 创建地区到端口的映射
   local port_index=0
@@ -1028,6 +1029,10 @@ EOF
                         "dest":3022
                     },
                     {
+                        "path":"/direct-vl",
+                        "dest":3027
+                    },
+                    {
                         "path":"/hk-vm",
                         "dest":3003
                     },
@@ -1046,6 +1051,10 @@ EOF
                     {
                         "path":"/vn-vm",
                         "dest":3023
+                    },
+                    {
+                        "path":"/direct-vm",
+                        "dest":3028
                     },
                     {
                         "path":"/hk-tr",
@@ -1068,6 +1077,10 @@ EOF
                         "dest":3024
                     },
                     {
+                        "path":"/direct-tr",
+                        "dest":3029
+                    },
+                    {
                         "path":"/hk-sh",
                         "dest":3005
                     },
@@ -1086,6 +1099,10 @@ EOF
                     {
                         "path":"/vn-sh",
                         "dest":3025
+                    },
+                    {
+                        "path":"/direct-sh",
+                        "dest":3030
                     },
                     {
                         "dest":3006,
@@ -1692,6 +1709,125 @@ EOF
                 ],
                 "metadataOnly":false
             }
+        },
+        {
+            "port":3027,
+            "listen":"127.0.0.1",
+            "protocol":"vless",
+            "tag":"direct-vl",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "level":0
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/direct-vl"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3028,
+            "listen":"127.0.0.1",
+            "protocol":"vmess",
+            "tag":"direct-vm",
+            "settings":{
+                "clients":[
+                    {
+                        "id":"${UUID}",
+                        "alterId":0
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/direct-vm"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3029,
+            "listen":"127.0.0.1",
+            "protocol":"trojan",
+            "tag":"direct-tr",
+            "settings":{
+                "clients":[
+                    {
+                        "password":"${UUID}"
+                    }
+                ]
+            },
+            "streamSettings":{
+                "network":"ws",
+                "security":"none",
+                "wsSettings":{
+                    "path":"/direct-tr"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
+        },
+        {
+            "port":3030,
+            "listen":"127.0.0.1",
+            "protocol":"shadowsocks",
+            "tag":"direct-sh",
+            "settings":{
+                "clients":[
+                    {
+                        "method":"chacha20-ietf-poly1305",
+                        "password":"${UUID}"
+                    }
+                ],
+                "decryption":"none"
+            },
+            "streamSettings":{
+                "network":"ws",
+                "wsSettings":{
+                    "path":"/direct-sh"
+                }
+            },
+            "sniffing":{
+                "enabled":true,
+                "destOverride":[
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly":false
+            }
         }
     ],
     "dns":{
@@ -1880,6 +2016,11 @@ EOF
                 "type":"field",
                 "inboundTag":["vn-vl","vn-vm","vn-tr","vn-sh","vn-reality-vision","vn-reality-grpc"],
                 "outboundTag":"socks5-vn"
+            },
+            {
+                "type":"field",
+                "inboundTag":["direct-vl","direct-vm","direct-tr","direct-sh","direct-reality-vision","direct-reality-grpc"],
+                "outboundTag":"direct"
             },
             {
                 "type":"field",
