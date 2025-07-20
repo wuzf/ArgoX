@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.7.0 (2025.01.07) - Multi-region Socks5 Support'
+VERSION='1.7.1 (2025.01.08) - Add SS2022 Support'
 
 # 各变量默认值
 GH_PROXY='https://ghfast.top/'
@@ -13,6 +13,16 @@ declare -A WS_PATHS=(
   ["tw"]="🇹🇼台湾"
   ["vn"]="🇻🇳越南"
   ["direct"]="Direct"
+)
+
+# SS2022 端口配置
+declare -A SS2022_PORTS=(
+  ["hk"]="3031"
+  ["sg"]="3032"
+  ["jp"]="3033"
+  ["tw"]="3034"
+  ["vn"]="3035"
+  ["direct"]="3036"
 )
 
 WORK_DIR='/etc/argox'
@@ -555,6 +565,11 @@ xray_variable() {
     UUID=${UUID:-"$UUID_DEFAULT"}
     [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && warning "\n $(text 4) "
   done
+
+  # 生成 SS2022 密钥（16字节，base64编码）
+  if [ -z "$SS2022_KEY" ]; then
+    SS2022_KEY=$(head -c 16 /dev/urandom | base64)
+  fi
 
   # 不再询问路径，使用预定义的多个路径
   # WS_PATH 将在生成配置时处理多个路径
@@ -1828,6 +1843,66 @@ EOF
                 ],
                 "metadataOnly":false
             }
+        },
+        {
+            "port": ${SS2022_PORTS["hk"]},
+            "protocol": "shadowsocks",
+            "tag": "hk-ss2022",
+            "settings": {
+                "method": "2022-blake3-aes-128-gcm",
+                "password": "${SS2022_KEY}",
+                "network": "tcp,udp"
+            }
+        },
+        {
+            "port": ${SS2022_PORTS["sg"]},
+            "protocol": "shadowsocks",
+            "tag": "sg-ss2022",
+            "settings": {
+                "method": "2022-blake3-aes-128-gcm",
+                "password": "${SS2022_KEY}",
+                "network": "tcp,udp"
+            }
+        },
+        {
+            "port": ${SS2022_PORTS["jp"]},
+            "protocol": "shadowsocks",
+            "tag": "jp-ss2022",
+            "settings": {
+                "method": "2022-blake3-aes-128-gcm",
+                "password": "${SS2022_KEY}",
+                "network": "tcp,udp"
+            }
+        },
+        {
+            "port": ${SS2022_PORTS["tw"]},
+            "protocol": "shadowsocks",
+            "tag": "tw-ss2022",
+            "settings": {
+                "method": "2022-blake3-aes-128-gcm",
+                "password": "${SS2022_KEY}",
+                "network": "tcp,udp"
+            }
+        },
+        {
+            "port": ${SS2022_PORTS["vn"]},
+            "protocol": "shadowsocks",
+            "tag": "vn-ss2022",
+            "settings": {
+                "method": "2022-blake3-aes-128-gcm",
+                "password": "${SS2022_KEY}",
+                "network": "tcp,udp"
+            }
+        },
+        {
+            "port": ${SS2022_PORTS["direct"]},
+            "protocol": "shadowsocks",
+            "tag": "direct-ss2022",
+            "settings": {
+                "method": "2022-blake3-aes-128-gcm",
+                "password": "${SS2022_KEY}",
+                "network": "tcp,udp"
+            }
         }
     ],
     "dns":{
@@ -1994,32 +2069,32 @@ EOF
         "rules":[
             {
                 "type":"field",
-                "inboundTag":["hk-vl","hk-vm","hk-tr","hk-sh","hk-reality-vision","hk-reality-grpc"],
+                "inboundTag":["hk-vl","hk-vm","hk-tr","hk-sh","hk-reality-vision","hk-reality-grpc","hk-ss2022"],
                 "outboundTag":"socks5-hk"
             },
             {
                 "type":"field",
-                "inboundTag":["sg-vl","sg-vm","sg-tr","sg-sh","sg-reality-vision","sg-reality-grpc"],
+                "inboundTag":["sg-vl","sg-vm","sg-tr","sg-sh","sg-reality-vision","sg-reality-grpc","sg-ss2022"],
                 "outboundTag":"socks5-sg"
             },
             {
                 "type":"field",
-                "inboundTag":["jp-vl","jp-vm","jp-tr","jp-sh","jp-reality-vision","jp-reality-grpc"],
+                "inboundTag":["jp-vl","jp-vm","jp-tr","jp-sh","jp-reality-vision","jp-reality-grpc","jp-ss2022"],
                 "outboundTag":"socks5-jp"
             },
             {
                 "type":"field",
-                "inboundTag":["tw-vl","tw-vm","tw-tr","tw-sh","tw-reality-vision","tw-reality-grpc"],
+                "inboundTag":["tw-vl","tw-vm","tw-tr","tw-sh","tw-reality-vision","tw-reality-grpc","tw-ss2022"],
                 "outboundTag":"socks5-tw"
             },
             {
                 "type":"field",
-                "inboundTag":["vn-vl","vn-vm","vn-tr","vn-sh","vn-reality-vision","vn-reality-grpc"],
+                "inboundTag":["vn-vl","vn-vm","vn-tr","vn-sh","vn-reality-vision","vn-reality-grpc","vn-ss2022"],
                 "outboundTag":"socks5-vn"
             },
             {
                 "type":"field",
-                "inboundTag":["direct-vl","direct-vm","direct-tr","direct-sh","direct-reality-vision","direct-reality-grpc"],
+                "inboundTag":["direct-vl","direct-vm","direct-tr","direct-sh","direct-reality-vision","direct-reality-grpc","direct-ss2022"],
                 "outboundTag":"direct"
             },
             {
@@ -2236,6 +2311,14 @@ export_list() {
   - {name: \"${region_name}-Sh-${NODE_NAME}\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${region}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
   done
 
+  # 生成所有地区的SS2022节点
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    local port="${SS2022_PORTS[$region]}"
+    CLASH_SUBSCRIBE+="
+  - {name: \"${region_name}-ss2022-${NODE_NAME}\", type: ss, server: ${SERVER_IP}, port: ${port}, cipher: 2022-blake3-aes-128-gcm, password: ${SS2022_KEY}, udp: true}"
+  done
+
   echo -n "${CLASH_SUBSCRIBE}" > $WORK_DIR/subscribe/proxies
 
   # 生成 clash 订阅配置文件
@@ -2262,6 +2345,16 @@ export_list() {
       SHADOWROCKET_SUBSCRIBE+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${grpc_port}" | base64 -w0)?remarks=${region_name}-reality-grpc-${NODE_NAME}&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}
 "
     fi
+  done
+
+  # 生成所有地区的SS2022节点
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    local port="${SS2022_PORTS[$region]}"
+    local method="2022-blake3-aes-128-gcm"
+    local encoded_method_key=$(echo -n "${method}:${SS2022_KEY}" | base64 -w0)
+    SHADOWROCKET_SUBSCRIBE+="
+ss://${encoded_method_key}@${SERVER_IP_2}:${port}#${region_name}-ss2022-${NODE_NAME}"
   done
 
   # 按协议分组生成节点 - 先生成所有地区的vless
@@ -2313,6 +2406,17 @@ trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websoc
   V2RAYN_SUBSCRIBE+="
 "  # 添加一个额外的空行，分隔 Reality 节点和其他节点
 
+  # 生成所有地区的SS2022节点
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    local port="${SS2022_PORTS[$region]}"
+    local method="2022-blake3-aes-128-gcm"
+    local encoded_method_key=$(echo -n "${method}:${SS2022_KEY}" | base64 -w0)
+    V2RAYN_SUBSCRIBE+="
+ss://${encoded_method_key}@${SERVER_IP_1}:${port}#${region_name}-ss2022-${NODE_NAME}"
+  done
+
+
   # 按协议分组生成节点 - 先生成所有地区的vless
   for region in "${!WS_PATHS[@]}"; do
     local region_name="${WS_PATHS[$region]}"
@@ -2360,6 +2464,18 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
       
       NODE_REPLACE+="\"${region}-reality-vision\", \"${region}-reality-grpc\""
     fi
+  done
+
+  # 生成所有地区的SS2022节点
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    local port="${SS2022_PORTS[$region]}"
+    if [ -n "$INBOUND_REPLACE" ]; then
+      INBOUND_REPLACE+=", "
+      NODE_REPLACE+=", "
+    fi
+    INBOUND_REPLACE+="{ \"type\":\"shadowsocks\", \"tag\":\"${region_name}-ss2022-${NODE_NAME}\", \"server\":\"${SERVER_IP}\", \"server_port\":${port}, \"method\":\"2022-blake3-aes-128-gcm\", \"password\":\"${SS2022_KEY}\", \"udp_over_tcp\": false }"
+    NODE_REPLACE+="\"${region_name}-ss2022-${NODE_NAME}\""
   done
 
   # 按协议分组生成节点 - 先生成所有地区的vless
