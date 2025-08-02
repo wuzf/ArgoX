@@ -2201,8 +2201,25 @@ export_list() {
   TLS_SERVER=${TLS_SERVER:-"$(awk -F '"' '/"server_name"/{print $4}' <<< "$JSON")"}
   SERVER=${SERVER:-"$(awk -F '"' '/"SERVER"/{print $4; exit}' <<< "$JSON")"}
   UUID=${UUID:-"$(awk -F '"' '/"password"/{print $4; exit}' <<< "$JSON")"}
-  NODE_NAME=${NODE_NAME:-"$(sed -n 's/.*tag\":\".*-reality-vision-\(.*\)\".*/\1/gp' <<< "$JSON" | head -1)"}
+  # 如果 NODE_NAME 为空，尝试从系统获取或使用默认值
+  if [ -z "$NODE_NAME" ]; then
+    if [ -x "$(type -p hostname)" ]; then
+      NODE_NAME="$(hostname)"
+    elif [ -s /etc/hostname ]; then
+      NODE_NAME="$(cat /etc/hostname)"
+    else
+      NODE_NAME="ArgoX"
+    fi
+  fi
   SS_METHOD=${SS_METHOD:-"$(awk -F '"' '/"method"/{print $4; exit}' <<< "$JSON")"}
+  # 获取 SS2022_KEY，从 SS2022 配置中提取
+  if [ -z "$SS2022_KEY" ]; then
+    SS2022_KEY=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[] | select(.protocol=="shadowsocks" and .settings.method=="2022-blake3-aes-128-gcm") | .settings.password' 2>/dev/null | head -1)
+    # 如果 jq 不可用或查找失败，尝试使用 awk
+    if [ -z "$SS2022_KEY" ] || [ "$SS2022_KEY" = "null" ]; then
+      SS2022_KEY=$(awk -F '"' '/"method".*"2022-blake3-aes-128-gcm"/{getline; if($0 ~ /"password"/) print $4}' <<< "$JSON" | head -1)
+    fi
+  fi
 
   # 重新设置各地区Reality端口变量
   for region in "${!WS_PATHS[@]}"; do
