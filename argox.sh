@@ -2222,12 +2222,13 @@ export_list() {
   fi
 
   # 重新设置各地区Reality端口变量
+  # 直接从JSON中查找特定标签的端口
   for region in "${!WS_PATHS[@]}"; do
     local region_name="${WS_PATHS[$region]}"
     local vision_port=""
     local grpc_port=""
     
-    # 直接用 jq 查找端口，因为 JSON 结构正确
+    # 使用jq直接从JSON中查找特定标签的端口
     if [ -x "$WORK_DIR/jq" ]; then
       vision_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag==\"${region}-reality-vision\") | .port" 2>/dev/null)
       grpc_port=$(echo "$JSON" | $WORK_DIR/jq -r ".inbounds[] | select(.tag==\"${region}-reality-grpc\") | .port" 2>/dev/null)
@@ -2237,26 +2238,24 @@ export_list() {
       [ "$grpc_port" = "null" ] && grpc_port=""
     fi
 
-    # 如果 jq 不可用或查找失败，使用全局变量
-    if [ -z "$vision_port" ]; then
-      local vision_var="REALITY_PORT_${region}_vision"
-      vision_port="${!vision_var}"
+    # 如果jq不可用或查找失败，使用grep和sed作为备选方案
+    if [ -z "$vision_port" ] || [ "$vision_port" = "" ]; then
+      # 使用grep和sed提取端口 - 搜索包含特定标签的整个块
+      vision_port=$(echo "$JSON" | grep -B 5 -A 10 "\"tag\".*\"${region}-reality-vision\"" | grep -m 1 "\"port\"" | sed 's/.*"port".*: *\([0-9]*\).*/\1/')
     fi
     
-    if [ -z "$grpc_port" ]; then
-      local grpc_var="REALITY_PORT_${region}_grpc"
-      grpc_port="${!grpc_var}"
+    if [ -z "$grpc_port" ] || [ "$grpc_port" = "" ]; then
+      # 使用grep和sed提取端口 - 搜索包含特定标签的整个块
+      grpc_port=$(echo "$JSON" | grep -B 5 -A 10 "\"tag\".*\"${region}-reality-grpc\"" | grep -m 1 "\"port\"" | sed 's/.*"port".*: *\([0-9]*\).*/\1/')
     fi
 
     # 验证端口是否为有效数字
     if [[ ! "$vision_port" =~ ^[0-9]+$ ]] || [ "$vision_port" -lt 1 ] || [ "$vision_port" -gt 65535 ]; then
-      local vision_var="REALITY_PORT_${region}_vision"
-      vision_port="${!vision_var}"  # 再次尝试使用全局变量
+      vision_port=""
     fi
     
     if [[ ! "$grpc_port" =~ ^[0-9]+$ ]] || [ "$grpc_port" -lt 1 ] || [ "$grpc_port" -gt 65535 ]; then
-      local grpc_var="REALITY_PORT_${region}_grpc"
-      grpc_port="${!grpc_var}"  # 再次尝试使用全局变量
+      grpc_port=""
     fi
 
     # 设置全局变量
@@ -2563,6 +2562,29 @@ EOF
 └────────────────┘  └────────────────┘
 ----------------------------
 $(info "$(sed "G" <<< "${V2RAYN_SUBSCRIBE}")")"
+
+EXPORT_LIST_FILE+="
+
+多地区 Reality 节点:"
+  
+  for region in "${!WS_PATHS[@]}"; do
+    local region_name="${WS_PATHS[$region]}"
+    local vision_port_var="REALITY_PORT_${region}_vision"
+    local grpc_port_var="REALITY_PORT_${region}_grpc"
+    local vision_port="${!vision_port_var}"
+    local grpc_port="${!grpc_port_var}"
+    
+    # 只有当端口有效时才显示节点
+    if [ -n "$vision_port" ] && [ "$vision_port" != "" ] && [ "$vision_port" != "-1" ]; then
+      EXPORT_LIST_FILE+="
+vless://${UUID}@${SERVER_IP_1}:${vision_port}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${region_name}-reality-vision-${NODE_NAME}"
+    fi
+    
+    if [ -n "$grpc_port" ] && [ "$grpc_port" != "" ] && [ "$grpc_port" != "-1" ]; then
+      EXPORT_LIST_FILE+="
+vless://${UUID}@${SERVER_IP_1}:${grpc_port}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${region_name}-reality-grpc-${NODE_NAME}"
+    fi
+  done
 
 EXPORT_LIST_FILE+="
 
