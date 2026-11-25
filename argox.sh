@@ -4770,7 +4770,7 @@ create_shortcut() {
   cat > $WORK_DIR/ax.sh << EOF
 #!/usr/bin/env bash
 
-bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/wuzf/ArgoX/private/argox.sh) \$1
+bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/wuzf/ArgoX/main/argox.sh) \$1
 EOF
   chmod +x $WORK_DIR/ax.sh
   ln -sf $WORK_DIR/ax.sh /usr/bin/argox
