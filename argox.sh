@@ -1,3 +1,4 @@
+# wuzf private: 默认中文，优选域名 time.is 优先，UUID 与 Reality 65000 沿用现网。
 #!/usr/bin/env bash
 
 # 当前脚本版本号
@@ -26,7 +27,7 @@ SERVICE_FIREWALL_STATE_FILE="${FIREWALL_STATE_DIR}/service_ports.list"
 TLS_SERVER='addons.mozilla.org'
 START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此基础上顺数
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
-CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
+CDN_DOMAIN=("time.is" "ip.sb" "skk.moe" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 DEFAULT_XRAY_VERSION='26.11.9'
 IP_API_NODES=('https://ip.cloudflare.now.cc' 'https://ip.cloudflare.nyc.mn')
@@ -1259,8 +1260,8 @@ select_language() {
     case "${_LANG_IN_CUSTOM,,}" in
       e|english ) L=E ;;
       c|chinese ) L=C ;;
-      * ) [ -z "$L" ] && L=E && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
-      [ "$LANGUAGE" = 2 ] && L=C ;;
+      * ) [ -z "$L" ] && L=C && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
+      [ "$LANGUAGE" = 1 ] && L=E ;;
     esac
   fi
 }
@@ -1805,6 +1806,7 @@ xray_variable() {
   grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
   TLS_SERVER=${TLS_SERVER:-"addons.mozilla.org"}
 
+  REALITY_PORT_EXPLICIT=${REALITY_PORT:-}
   for i in "${!INSTALL_PROTOCOLS[@]}"; do
     local p="${INSTALL_PROTOCOLS[$i]}"
     case "$p" in
@@ -1822,6 +1824,11 @@ xray_variable() {
       m) SS2022_PORT=$(( START_PORT + i )) ;;
     esac
   done
+
+  # private: 现网 Reality 约定 65000。调用方已指定，或 65000 被占用时，保留自动分配结果。
+  if [ -z "${REALITY_PORT_EXPLICIT:-}" ] && [ -n "$REALITY_PORT" ] && ! ss -nltup | grep -qE '[:.]65000([^0-9]|$)'; then
+    REALITY_PORT=65000
+  fi
 
   # Nginx 端口：仅在需要 nginx 时询问
   if [ "$INSTALL_NGINX" = 'y' ]; then
@@ -2006,6 +2013,7 @@ fast_install_variables() {
   read -r -a INSTALL_PROTOCOLS <<< "${_all_protocol_letters% }"
 
   START_PORT=${START_PORT:-"$START_PORT_DEFAULT"}
+  REALITY_PORT_EXPLICIT=${REALITY_PORT:-}
   for i in "${!INSTALL_PROTOCOLS[@]}"; do
     local p="${INSTALL_PROTOCOLS[$i]}"
     case "$p" in
@@ -2023,6 +2031,11 @@ fast_install_variables() {
       m) SS2022_PORT=$(( START_PORT + i )) ;;
     esac
   done
+
+  # private: 现网 Reality 约定 65000。调用方已指定，或 65000 被占用时，保留自动分配结果。
+  if [ -z "${REALITY_PORT_EXPLICIT:-}" ] && [ -n "$REALITY_PORT" ] && ! ss -nltup | grep -qE '[:.]65000([^0-9]|$)'; then
+    REALITY_PORT=65000
+  fi
 
   # 极速安装模式：如果填了 PORT_HOPPING_RANGE，自动解析并启用端口跳跃
   if [ -z "$IS_HOPPING" ] && [ -n "$PORT_HOPPING_RANGE" ]; then
@@ -2115,7 +2128,7 @@ input_uuid() {
   until [[ "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; do
     (( a-- )) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
-    UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
+    UUID_DEFAULT="ffffffff-ffff-ffff-ffff-ffffffffffff"
     if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
       $_uuid_step_done || { (( STEP_NUM++ )) || true; _uuid_step_done=true; }
       reading "\n $(text 12) " UUID
@@ -4757,7 +4770,7 @@ create_shortcut() {
   cat > $WORK_DIR/ax.sh << EOF
 #!/usr/bin/env bash
 
-bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \$1
+bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/wuzf/ArgoX/private/argox.sh) \$1
 EOF
   chmod +x $WORK_DIR/ax.sh
   ln -sf $WORK_DIR/ax.sh /usr/bin/argox
